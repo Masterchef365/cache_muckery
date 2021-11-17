@@ -4,9 +4,13 @@ use std::time::Instant;
 use std::collections::HashMap;
 
 fn main() {
-    let rows = 1_000_000; // Number of rows
+    let rows = 100_000; // Number of rows
     let cols = 100; // Number of data columns
-    let n_adds = 10; // Number of adding operations
+    let n_adds = 400; // Number of adding operations
+
+    println!("# of rows: {}", rows);
+    println!("# of columns: {}", cols);
+    println!("# of operations: {}", n_adds);
 
     let mut rng = rand::thread_rng();
 
@@ -20,34 +24,52 @@ fn main() {
         .map(|_| (uniform.sample(&mut rng), uniform.sample(&mut rng)))
         .collect();
 
-    // Run assessment of cols perf
-    let start_time = Instant::now();
-    let mut by_cols_data = data.clone();
-    by_cols(&mut by_cols_data, &adds, cols);
-    let cols_end = start_time.elapsed();
-
-    // Run assessment of smart cols perf
-    let start_time = Instant::now();
-    let mut by_cols_smart_data = data.clone();
-    by_cols_smart(&mut by_cols_smart_data, &adds, cols);
-    let cols_smart_end = start_time.elapsed();
-
     // Run assessment of rows perf
+    println!("Rows:");
     let start_time = Instant::now();
     let mut by_rows_data = data.clone();
     by_rows(&mut by_rows_data, &adds, cols);
-    let rows_end = start_time.elapsed();
+    println!("\tTime: {}s", start_time.elapsed().as_secs_f32());
 
+    // Run assessment of transposed rows perf
+    println!("Rows (transposed)");
+    let start_time = Instant::now();
+    let mut by_rows_transposed_data = data.clone();
+    by_rows_transposed(&mut by_rows_transposed_data, &adds, cols);
+    println!("\tTime: {}s", start_time.elapsed().as_secs_f32());
+
+    // Run assessment of cols perf
+    println!("Cols:");
+    let start_time = Instant::now();
+    let mut by_cols_data = data.clone();
+    by_cols(&mut by_cols_data, &adds, cols);
+    println!("\tTime: {}s", start_time.elapsed().as_secs_f32());
+
+    // Run assessment of smart cols perf
+    println!("Cols (smart)");
+    let start_time = Instant::now();
+    let mut by_cols_smart_data = data.clone();
+    by_cols_smart(&mut by_cols_smart_data, &adds, cols);
+    println!("\tTime: {}s", start_time.elapsed().as_secs_f32());
+
+    println!("Verifying solutions...");
     assert_eq!(&by_rows_data, &by_cols_data);
     assert_eq!(&by_rows_data, &by_cols_smart_data);
-
+    assert_eq!(&by_rows_data, &by_rows_transposed_data);
     println!("Finished!");
-    println!("Rows time: {}s", rows_end.as_secs_f32());
-    println!("Cols time: {}s", cols_end.as_secs_f32());
-    println!("Cols time (smart): {}s", cols_smart_end.as_secs_f32());
 }
 
+/// Rows on the outside, adds on the inside
 fn by_rows(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
+    for row in data.chunks_exact_mut(n_cols) {
+        for &(column_a, column_b) in adds {
+            row[column_a] += row[column_b];
+        }
+    }
+}
+
+/// Rows on the inside, adds on the outside
+fn by_rows_transposed(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
     for &(column_a, column_b) in adds {
         for row in data.chunks_exact_mut(n_cols) {
             row[column_a] += row[column_b];
@@ -55,6 +77,7 @@ fn by_rows(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
     }
 }
 
+/// Transpose into columns first
 fn by_cols(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
     //  Split into columns
     let mut cols: Vec<Vec<f32>> = vec![vec![]; n_cols];
@@ -74,7 +97,7 @@ fn by_cols(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
         }
         cols[column_a] = new_col;
     }
-    println!("Adding time inside columns: {}s", start_time.elapsed().as_secs_f32());
+    println!("\tAdding time inside columns: {}s", start_time.elapsed().as_secs_f32());
 
     // Merge columns back into rows
     for (row_idx, row) in data.chunks_exact_mut(n_cols).enumerate() {
@@ -84,6 +107,7 @@ fn by_cols(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
     }
 }
 
+/// Transpose into columns first (but only the columns you need)
 fn by_cols_smart(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
     //  Split into columns, only those which appear in the ads
     let mut cols: HashMap<usize, Vec<f32>> = HashMap::new();
@@ -108,7 +132,7 @@ fn by_cols_smart(data: &mut [f32], adds: &[(usize, usize)], n_cols: usize) {
         }
         *cols.get_mut(column_a).unwrap() = new_col;
     }
-    println!("Adding time inside columns (smart): {}s", start_time.elapsed().as_secs_f32());
+    println!("\tAdding time inside columns (smart): {}s", start_time.elapsed().as_secs_f32());
 
     // Merge columns back into rows
     for (row_idx, row) in data.chunks_exact_mut(n_cols).enumerate() {

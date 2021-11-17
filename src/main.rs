@@ -4,9 +4,12 @@ use std::time::Instant;
 use std::collections::HashMap;
 
 fn main() {
-    let rows = 100_000; // Number of rows
-    let cols = 100; // Number of data columns
-    let n_adds = 400; // Number of adding operations
+    let mut args = std::env::args().skip(1);
+
+    let usage = "Usage: cache_fuckery <rows> <cols> <n_operations>";
+    let rows: usize = args.next().unwrap_or("100000".into()).parse().expect(usage); // Number of rows
+    let cols: usize = args.next().unwrap_or("100".into()).parse().expect(usage); // Number of columns
+    let n_adds: usize = args.next().unwrap_or("400".into()).parse().expect(usage); // Number of adds
 
     println!("# of rows: {}", rows);
     println!("# of columns: {}", cols);
